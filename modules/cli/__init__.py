@@ -9,6 +9,8 @@ class Cli():
     self.inputStr = ''
     self.lastKey  = 0
     self.menu_num = 0
+    self.small_screen = False
+    # Init the screen
     self.stdscr = curses.initscr()
     # Configure curses to respond to keystrokes
     curses.noecho()
@@ -32,15 +34,16 @@ class Cli():
     self.INPUT_COLORS = curses.color_pair(4)
 
   def initWindows(self):
-    self.status_bar_height = 2
-    self.nav_bar_width     = 15
+    self.height, self.width = self.stdscr.getmaxyx()    
+    self.small_screen = True if self.width < 90 else False
+
+    self.status_bar_height = 2 if not self.small_screen else 3
+    self.nav_bar_width     = 14
     self.input_bar_height  = 1
 
-    self.height, self.width = self.stdscr.getmaxyx()
     self.statusBar = curses.newwin(self.status_bar_height, self.width,     0,0)
     self.navBar    = curses.newwin(self.height - self.status_bar_height, self.nav_bar_width,     self.status_bar_height,0)
     self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.height - 1, self.nav_bar_width - 1)
-    self.screen   = curses.newwin(self.height - self.status_bar_height - self.input_bar_height, self.width - self.nav_bar_width + 1,      self.status_bar_height, self.nav_bar_width - 1)
 
   def initNavList(self):
     self.navList = [
@@ -73,6 +76,8 @@ class Cli():
   def mainLoop(self):
     exit = False
     while exit == False:
+      self.height, self.width = self.stdscr.getmaxyx()
+
       self.drawStatusBar()
       self.drawNavMenu()
       self.drawInputBar()
@@ -96,39 +101,73 @@ class Cli():
 
   def drawStatusBar(self):
     height, width = self.statusBar.getmaxyx()
-    # Top row
+
+    # Calculations
+    bytes_per_gb = 1024 ** 3
+    # Memory
     memory = psutil.virtual_memory()
-    mem_str  = f'Memory: { memory[2] }% of { "{:.2f}".format(memory[0] / (1024 ** 3)) } GB'
+    mem_str  = f'Memory: { memory[2] }% of { "{:.2f}".format(memory[0] / bytes_per_gb) } GB'
     
+    # CPU
     cpu_perc = psutil.cpu_percent()
     cpu_core = psutil.cpu_count()
     cpu_freq = psutil.cpu_freq()[0]
-    cpu_str  = f'Cpu: { cpu_perc }% of { cpu_core } cores @ { cpu_freq }'
-
+    cpu_str  = f'Cpu: { cpu_perc }% of { cpu_core } x { cpu_freq } MHz'
+    
+    # CPU load 
+    cpu_load = [x / (psutil.cpu_count() * 100) for x in psutil.getloadavg()]
+    load1 = "{:.1%}".format(cpu_load[0])
+    load5 = "{:.1%}".format(cpu_load[1])
+    load15 = "{:.1%}".format(cpu_load[2])
+    if self.small_screen:
+      load_str = f'Load: { load1 } { load5 } { load15 }'
+    else:
+      load_str = f'Load: { load1 } 1m { load5 } 5m { load15 } 15m'
+    
+    # Date time
     date_time_str = dt.strftime(dt.now(), '%B %d %Y %H:%M %S')
+    
+    # Disk
+    df = os.statvfs('/')
+    perc_free   = "{0:.1%}".format(df.f_bfree / df.f_blocks)
+    total_space = "{:.2f}".format((df.f_frsize * df.f_blocks) / bytes_per_gb)
+    df_str = f'Disk: { perc_free } of { total_space } GB'
+  
+    # Host
+    host_str = f'Host: { socket.gethostname() }'
+  
     top_spacing   = ' ' * ((width - len(mem_str + cpu_str + date_time_str) - 3) // 2)
 
     fix_top_align = ''
     if len(mem_str + top_spacing + cpu_str + top_spacing + date_time_str) + 2 < width -1:
       fix_top_align = ' '
 
-    df = os.statvfs('/')
-    perc_free = "{0:.1%}".format(df.f_bfree / df.f_blocks)
-    total_space = "{:.2f}".format((df.f_frsize * df.f_blocks) / (1024 ** 3))
-    df_str = f'Disk: { perc_free } of { total_space } GB'
+    if self.small_screen:
+      layout = [
+        [host_str, date_time_str],
+        [mem_str, cpu_str],
+        [df_str, load_str]
+      ]
+    else:
+      layout = [
+        [mem_str, date_time_str, cpu_str],
+        [df_str, host_str, load_str]
+      ]
 
-    cpu_load = [x / (psutil.cpu_count() * 100) for x in psutil.getloadavg()]
-    load_str = f'Load: { "{:.1%}".format(cpu_load[0])} 1m { "{:.1%}".format(cpu_load[1]) } 5m { "{:.1%}".format(cpu_load[2]) } 15m'
+    for i, line in enumerate(layout):
+      line_lens = [len(x) for x in line]
+      spaces_left = width - sum(line_lens)
 
-    host_str      = f'Host: { socket.gethostname() }'
+      if self.small_screen:
+        spacing = ' ' * (spaces_left - 1)
+        print_str = ''.join([line[0],spacing,line[1]]) 
+        self.statusBar.addstr(i,0,print_str, self.STATUS_COLORS)
+      else:
+        spacing = ' ' * (spaces_left // 2 - 1)
+        xtr_space = '  ' if spaces_left % 2 != 0 else ' '
+        print_str = ''.join([line[0],spacing,line[1],spacing,xtr_space,line[2]]) 
+        self.statusBar.addstr(i,0,print_str[:width-1], self.STATUS_COLORS)
 
-    btm_spacing  = ' ' * ((width - len(df_str + load_str + host_str) - 3) // 2)
-    fix_btm_align = ''
-    if len(df_str+btm_spacing+load_str+btm_spacing+host_str) < width -1:
-      fix_btm_align = ' '
-
-    self.statusBar.addstr(0,0,f' { mem_str }{ top_spacing }{ date_time_str }{ top_spacing }{ fix_top_align }{ cpu_str }  '[:width-1],self.STATUS_COLORS)
-    self.statusBar.addstr(1,0,f' { df_str }{ btm_spacing }{ host_str }{ btm_spacing }{ fix_btm_align }{ load_str }  '[:width-1] ,self.STATUS_COLORS)
     self.statusBar.refresh()
 
   def drawNavMenu(self):
@@ -162,6 +201,11 @@ class Cli():
       self.menu_num += 1
     elif self.lastKey == 259 and self.menu_num > 0:
       self.menu_num -= 1
+    elif self.lastKey == curses.KEY_RESIZE:
+      curses.resizeterm(*self.stdscr.getmaxyx())
+      self.initWindows()
+      self.stdscr.clear()
+      self.stdscr.refresh()
     
     # Must be a character, write to screen
     elif self.lastKey >= 32 and self.lastKey <= 126:
