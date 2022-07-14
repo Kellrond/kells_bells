@@ -10,6 +10,7 @@ class Cli():
     self.lastKey  = 0
     self.menu_num = 0
     self.small_screen = False
+    self.already_resized = False
     # Init the screen
     self.stdscr = curses.initscr()
     # Configure curses to respond to keystrokes
@@ -111,7 +112,8 @@ class Cli():
     # CPU
     cpu_perc = psutil.cpu_percent()
     cpu_core = psutil.cpu_count()
-    cpu_freq = psutil.cpu_freq()[0]
+    cpu_freq = str(psutil.cpu_freq()[0])
+    cpu_freq = cpu_freq
     cpu_str  = f'Cpu: { cpu_perc }% of { cpu_core } x { cpu_freq } MHz'
     
     # CPU load 
@@ -198,10 +200,13 @@ class Cli():
 
     # UP and DOWN handler 
     if self.lastKey == 258 and self.menu_num < len(self.navList) - 1:
+      self.already_resized = False
       self.menu_num += 1
     elif self.lastKey == 259 and self.menu_num > 0:
+      self.already_resized = False
       self.menu_num -= 1
-    elif self.lastKey == curses.KEY_RESIZE:
+    elif self.lastKey == curses.KEY_RESIZE and self.already_resized == False:
+      self.already_resized = True
       curses.resizeterm(*self.stdscr.getmaxyx())
       self.initWindows()
       self.stdscr.clear()
@@ -209,4 +214,5 @@ class Cli():
     
     # Must be a character, write to screen
     elif self.lastKey >= 32 and self.lastKey <= 126:
+      self.already_resized = False
       self.inputStr += chr(self.lastKey)
