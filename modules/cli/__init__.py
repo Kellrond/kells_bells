@@ -209,8 +209,6 @@ class Cli():
       self.already_resized = True
       curses.resizeterm(*self.stdscr.getmaxyx())
       self.initWindows()
-      self.stdscr.clear()
-      self.stdscr.refresh()
     
     # Must be a character, write to screen
     elif self.lastKey >= 32 and self.lastKey <= 126:
