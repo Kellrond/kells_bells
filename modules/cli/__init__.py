@@ -44,7 +44,7 @@ class Cli():
 
     self.statusBar = curses.newwin(self.status_bar_height, self.width,     0,0)
     self.navBar    = curses.newwin(self.height - self.status_bar_height, self.nav_bar_width,     self.status_bar_height,0)
-    self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.height - 2, self.nav_bar_width - 1)
+    self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.height - 1, self.nav_bar_width - 1)
 
   def initNavList(self):
     self.navList = [
