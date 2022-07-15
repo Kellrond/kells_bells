@@ -155,7 +155,7 @@ class Cli():
     
     # Disk
     df = os.statvfs('/')
-    perc_free   = "{0:.1%}".format(df.f_bfree / df.f_blocks)
+    perc_free   = "{0:.1%}".format(1 - (df.f_bfree / df.f_blocks))
     total_space = "{:.2f}".format((df.f_frsize * df.f_blocks) / bytes_per_gb)
     df_str = f'Disk: { perc_free } of { total_space } GB'
   
