@@ -11,6 +11,16 @@ class Cli():
     self.menu_num = 0
     self.small_screen = False
     self.already_resized = False
+    # Window sizes
+    self.status_bar_height = 2
+    self.nav_bar_width     = 14
+    self.input_bar_height  = 1
+    # Cursor and input
+    self.input_prompt_str    = f'Input:'
+    self.cur_y = self.status_bar_height
+    self.cur_x = self.nav_bar_width + len(self.input_prompt_str)
+    self.cur_min_x = self.cur_x
+
     # Init the screen
     self.stdscr = curses.initscr()
     # Configure curses to respond to keystrokes
@@ -25,10 +35,10 @@ class Cli():
 
   def initColors(self):
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_RED)
-    curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_YELLOW)
-    curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_RED)
-    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
+    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLUE)
+    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLUE)
     self.STATUS_COLORS = curses.color_pair(1)
     self.NAV_OPTION = curses.color_pair(2)
     self.NAV_SELECT = curses.color_pair(3)
@@ -38,13 +48,25 @@ class Cli():
     self.height, self.width = self.stdscr.getmaxyx()    
     self.small_screen = True if self.width < 90 else False
 
-    self.status_bar_height = 2 if not self.small_screen else 3
-    self.nav_bar_width     = 14
-    self.input_bar_height  = 1
-
     self.statusBar = curses.newwin(self.status_bar_height, self.width,     0,0)
     self.navBar    = curses.newwin(self.height - self.status_bar_height, self.nav_bar_width,     self.status_bar_height,0)
-    self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.height - 1, self.nav_bar_width - 1)
+    self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.status_bar_height, self.nav_bar_width - 1)
+
+    self.stdscr.move(self.status_bar_height, self.nav_bar_width + 6)
+
+  def resizeWindows(self):
+    self.height, self.width = self.stdscr.getmaxyx()
+
+    prev_screen_size = self.small_screen
+    self.small_screen = True if self.width < 90 else False
+
+    self.status_bar_height = 2 if not self.small_screen else 3
+
+    self.statusBar.resize(self.status_bar_height, self.width)
+    self.navBar.resize(self.height - self.status_bar_height, self.nav_bar_width)
+    self.inputBar.resize(self.input_bar_height, self.width - self.nav_bar_width)
+
+    self.stdscr.refresh()
 
   def initNavList(self):
     self.navList = [
@@ -84,12 +106,14 @@ class Cli():
       self.drawInputBar()
       
       view = self.navList[self.menu_num].get('view')
-      h = self.height - self.status_bar_height - self.input_bar_height
+      h = self.height - self.status_bar_height - self.input_bar_height - 1
       w = self.width - self.nav_bar_width + 1
-      y = self.status_bar_height
+      y = self.status_bar_height + self.input_bar_height
       x = self.nav_bar_width - 1
       view(h,w,y,x, **self.__dict__)
 
+      self.stdscr.move(self.cur_y, self.cur_x)
+      curses.doupdate()
       self.inputHandler()
     
     self.quit()
@@ -146,7 +170,6 @@ class Cli():
 
     if self.small_screen:
       layout = [
-        [host_str, date_time_str],
         [mem_str, cpu_str],
         [df_str, load_str]
       ]
@@ -170,7 +193,7 @@ class Cli():
         print_str = ''.join([line[0],spacing,line[1],spacing,xtr_space,line[2]]) 
         self.statusBar.addstr(i,0,print_str[:width-1], self.STATUS_COLORS)
 
-    self.statusBar.refresh()
+    self.statusBar.noutrefresh()
 
   def drawNavMenu(self):
     height, width = self.navBar.getmaxyx()
@@ -185,32 +208,45 @@ class Cli():
           color = self.NAV_SELECT
       self.navBar.addstr(i,0,f"{menu_name}{' ' * (width - len(menu_name) - 1)}", color)
 
-    self.navBar.refresh()
+    self.navBar.noutrefresh()
 
   def drawInputBar(self):
     height, width = self.inputBar.getmaxyx()
-    prompt_str    = f'Input:'
-    spacing       = ' ' * (width - (len(prompt_str) + len(self.inputStr)) - 3)
+    spacing       = ' ' * (width - (len(self.input_prompt_str) + len(self.inputStr)) - 3)
 
-    self.inputBar.addstr(0,0,f' { prompt_str }{ self.inputStr }{ spacing } ', self.INPUT_COLORS)
-    self.inputBar.refresh()
+    self.inputBar.addstr(0,0,f' { self.input_prompt_str }{ self.inputStr }{ spacing } ', self.INPUT_COLORS)
+    self.inputBar.noutrefresh()
 
   def inputHandler(self):
     self.lastKey = self.stdscr.getch()
 
-    # UP and DOWN handler 
-    if self.lastKey == 258 and self.menu_num < len(self.navList) - 1:
-      self.already_resized = False
-      self.menu_num += 1
-    elif self.lastKey == 259 and self.menu_num > 0:
-      self.already_resized = False
-      self.menu_num -= 1
-    elif self.lastKey == curses.KEY_RESIZE and self.already_resized == False:
-      self.already_resized = True
-      curses.resizeterm(*self.stdscr.getmaxyx())
-      self.initWindows()
+    # TAB navigation handler 
+    if self.lastKey == 9: # Tab
+      if self.menu_num < len(self.navList) - 1:
+        self.menu_num += 1
+      else: 
+        self.menu_num = 0
+    elif self.lastKey == 353:
+      if self.menu_num > 0:
+        self.menu_num -= 1
+      else:
+        self.menu_num = len(self.navList) - 1
+    # LEFT and RIGHT 
+    elif self.lastKey == 260 and self.cur_x > self.nav_bar_width + len(self.input_prompt_str):
+      self.cur_x -=1
+    elif self.lastKey == 261 and self.cur_x < self.nav_bar_width + len(self.input_prompt_str) + len(self.inputStr):
+      self.cur_x +=1 
+    # DELETE 
+    elif self.lastKey == 127:
+      self.inputStr = self.inputStr[:-1]
+      self.cur_x =  max(self.cur_min_x, self.cur_x - 1)
+    # Window resize 
+    elif self.lastKey == curses.KEY_RESIZE:
+      self.lastKey = 0
+      self.resizeWindows()
     
     # Must be a character, write to screen
     elif self.lastKey >= 32 and self.lastKey <= 126:
-      self.already_resized = False
-      self.inputStr += chr(self.lastKey)
+      pos = self.cur_x - self.nav_bar_width - len(self.input_prompt_str)
+      self.inputStr = self.inputStr[:pos] + chr(self.lastKey) + self.inputStr[pos:]
+      self.cur_x += 1
