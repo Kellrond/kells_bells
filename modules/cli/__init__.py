@@ -1,8 +1,10 @@
 import curses, os, psutil, socket, sys 
 from datetime import datetime as dt
 
+from modules import sys_info
 from views import backup, database, debug_curses, email, home, server 
 
+bytes_per_gb = 1024 ** 3
 
 class Cli():
   def __init__(self) -> None:
@@ -23,6 +25,7 @@ class Cli():
 
     # Init the screen
     self.stdscr = curses.initscr()
+    
     # Configure curses to respond to keystrokes
     curses.noecho()
     curses.cbreak()
@@ -49,6 +52,7 @@ class Cli():
     self.small_screen = True if self.width < 90 else False
 
     self.statusBar = curses.newwin(self.status_bar_height, self.width,     0,0)
+    self.statusBar.nodelay(True)
     self.navBar    = curses.newwin(self.height - self.status_bar_height, self.nav_bar_width,     self.status_bar_height,0)
     self.inputBar  = curses.newwin(self.input_bar_height, self.width - self.nav_bar_width + 1,     self.status_bar_height, self.nav_bar_width - 1)
 
@@ -106,7 +110,7 @@ class Cli():
       self.drawInputBar()
       
       view = self.navList[self.menu_num].get('view')
-      h = self.height - self.status_bar_height - self.input_bar_height - 1
+      h = self.height - self.status_bar_height - self.input_bar_height
       w = self.width - self.nav_bar_width + 1
       y = self.status_bar_height + self.input_bar_height
       x = self.nav_bar_width - 1
@@ -127,37 +131,24 @@ class Cli():
   def drawStatusBar(self):
     height, width = self.statusBar.getmaxyx()
 
-    # Calculations
-    bytes_per_gb = 1024 ** 3
+    
     # Memory
-    memory = psutil.virtual_memory()
-    mem_str  = f'Memory: { memory[2] }% of { "{:.2f}".format(memory[0] / bytes_per_gb) } GB'
+    memory = sys_info.Memory()
+    mem_str  = f'Memory: { memory.perc }% of { "{:.2f}".format(memory.total) } GB'
     
-    # CPU
-    cpu_perc = psutil.cpu_percent()
-    cpu_core = psutil.cpu_count()
-    cpu_freq = str(psutil.cpu_freq()[0])
-    cpu_freq = cpu_freq
-    cpu_str  = f'Cpu: { cpu_perc }% of { cpu_core } x { cpu_freq } MHz'
-    
-    # CPU load 
-    cpu_load = [x / (psutil.cpu_count() * 100) for x in psutil.getloadavg()]
-    load1 = "{:.1%}".format(cpu_load[0])
-    load5 = "{:.1%}".format(cpu_load[1])
-    load15 = "{:.1%}".format(cpu_load[2])
+    cpu = sys_info.Cpu()
+
+    cpu_str = f'Cpu: { cpu.perc }% of { cpu.logic_cores } x { cpu.freq_current } MHz'
     if self.small_screen:
-      load_str = f'Load: { load1 } { load5 } { load15 }'
+      load_str = f'Load: { cpu.load_1m } { cpu.load_5m } { cpu.load_15m }'
     else:
-      load_str = f'Load: { load1 } 1m { load5 } 5m { load15 } 15m'
+      load_str = f'Load: { cpu.load_1m } 1m { cpu.load_5m } 5m { cpu.load_15m } 15m'
     
     # Date time
     date_time_str = dt.strftime(dt.now(), '%B %d %Y %H:%M %S')
     
-    # Disk
-    df = os.statvfs('/')
-    perc_free   = "{0:.1%}".format(1 - (df.f_bfree / df.f_blocks))
-    total_space = "{:.2f}".format((df.f_frsize * df.f_blocks) / bytes_per_gb)
-    df_str = f'Disk: { perc_free } of { total_space } GB'
+    disk = sys_info.Disk()
+    disk_str = f'Disk: { "{:.2f}".format(disk.perc) }% of { "{:.2f}".format(disk.total) } GB'
   
     # Host
     host_str = f'Host: { socket.gethostname() }'
@@ -171,12 +162,12 @@ class Cli():
     if self.small_screen:
       layout = [
         [mem_str, cpu_str],
-        [df_str, load_str]
+        [disk_str, load_str]
       ]
     else:
       layout = [
         [mem_str, date_time_str, cpu_str],
-        [df_str, host_str, load_str]
+        [disk_str, host_str, load_str]
       ]
 
     for i, line in enumerate(layout):
@@ -237,7 +228,7 @@ class Cli():
     elif self.lastKey == 261 and self.cur_x < self.nav_bar_width + len(self.input_prompt_str) + len(self.inputStr):
       self.cur_x +=1 
     # DELETE 
-    elif self.lastKey == 127:
+    elif self.lastKey == 127 or self.lastKey == 263:
       self.inputStr = self.inputStr[:-1]
       self.cur_x =  max(self.cur_min_x, self.cur_x - 1)
     # Window resize 
