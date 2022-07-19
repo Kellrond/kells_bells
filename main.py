@@ -1,5 +1,5 @@
 from curses import wrapper
-from modules import cli
+import cli
 
 def main(stdscr):
     app = cli.Cli()
