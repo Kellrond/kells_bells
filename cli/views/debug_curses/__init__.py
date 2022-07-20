@@ -1,7 +1,7 @@
 import curses
 
 
-class View():
+class View:
   def __init__(self, **kwargs):
     from cli import UI
     self.ui = kwargs.get('ui', UI)
@@ -11,6 +11,7 @@ class View():
     self.loop()
 
   def loop(self):
+    self.ui.stdscr.nodelay(False)
     while self.viewing == True:
       self.out()
       self.ui.drawInputBar()

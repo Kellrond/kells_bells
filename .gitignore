@@ -1,2 +1,5 @@
 venv/*
 __pycache__/*
+db/db_connect.py
+*.pyc
+*.cpython-38.pyc

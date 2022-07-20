@@ -133,7 +133,7 @@ class UI():
     self.view_h = self.height - self.top_bar_height
     self.view_w = self.width - self.nav_bar_width
     self.view_y = self.top_bar_height
-    self.view_x = self.nav_bar_width
+    self.view_x = self.nav_bar_width - 1
 
     # Place cursor at the bottom
     self.stdscr.move(self.height - 1, self.width - 1)
@@ -147,7 +147,7 @@ class UI():
     self.view_h = self.height - self.top_bar_height
     self.view_w = self.width - self.nav_bar_width
     self.view_y = self.top_bar_height
-    self.view_x = self.nav_bar_width
+    self.view_x = self.nav_bar_width - 1
 
     self.stdscr.refresh()
 
@@ -205,6 +205,10 @@ class UI():
       self.cursor_y = y 
     if x: 
       self.cursor_x = x
+
+  def resetInput(self):
+    self.input_str = ''
+    self.cursor_x = self.cursor_x_min
 
   def incCursorX(self, n):
     self.cursor_x += n

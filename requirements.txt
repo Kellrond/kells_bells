@@ -1,0 +1,7 @@
+cffi==1.15.1
+cryptography==37.0.4
+greenlet==1.1.2
+psutil==5.9.1
+pycparser==2.21
+PyMySQL==1.0.2
+SQLAlchemy==1.4.39

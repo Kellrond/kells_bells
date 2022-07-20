@@ -1,12 +1,13 @@
 import curses
 
-class View():
+class View:
   def __init__(self, **kwargs):
     from cli import UI
     self.ui = kwargs.get('ui', UI)
     self.screen = curses.newwin(self.ui.view_h, self.ui.view_w, self.ui.view_y, self.ui.view_x)
     
   def loop(self):
+    self.ui.stdscr.nodelay(False)
     self.out()
     self.ui.getInput()
 

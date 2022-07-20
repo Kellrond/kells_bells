@@ -1,25 +1,25 @@
 import curses
 from modules import sys_info
 
-from cli.views.server.widgets import CpuWidget
 
-class View():
+class View:
   def __init__(self, **kwargs):
     from cli import UI
     self.ui = kwargs.get('ui', UI)
-    self.ui.createInputWindow(self.ui.view_w)
     self.screen = curses.newwin(self.ui.view_h, self.ui.view_w, self.ui.view_y, self.ui.view_x)
     self.system = kwargs.get('system', sys_info.System())
     self.viewing = True
     self.loop()
 
   def loop(self):
+    self.ui.stdscr.nodelay(True)
     while self.viewing:
       self.out()
       curses.doupdate()
       self.ui.getInput()
       # If last key was tab exit to menu
       if self.ui.last_key == 9 or self.ui.last_key == 353:
+        self.ui.stdscr.nodelay(False)
         self.viewing = False
         self.ui.exit_code = 'menu'    
 
@@ -31,11 +31,11 @@ class View():
     self.genLineList()
 
     # Draw lines
-    self.ui.view_line_count = len(self.lineList)
+    self.ui.view_line_count = len(self.line_list)
     self.screen.erase()
     i = 0
     while i < height - 1 and i < self.ui.view_line_count:
-      self.screen.addstr(i, 1, self.lineList[self.ui.scroll_y + i][:width-2])
+      self.screen.addstr(i, 1, self.line_list[self.ui.scroll_y + i][:width-2])
       i += 1
 
     self.screen.noutrefresh()
@@ -53,7 +53,7 @@ class View():
     self.allDisks = [f'{ d.get("part") }: { d.get("perc") }% used of { d.get("total") } GB' for d in self.system.disk.drives]
   
   def genLineList(self):
-    self.lineList = [
+    self.line_list = [
       f"Host: { self.system.host }",
       f"Time: { self.system.date_time}" ,
       " ",
@@ -72,5 +72,5 @@ class View():
       '  -- Partitions -- ',
     ]
     for disk in self.allDisks:
-      self.lineList.append(disk)
+      self.line_list.append(disk)
       
