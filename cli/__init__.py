@@ -29,20 +29,17 @@ class Cli():
     self.ui.initWindows()
     exit = False
     while exit == False:
-      self.ui.resizeWindows()
       self.height, self.width = self.stdscr.getmaxyx()
       self.ui.draw()
 
       view = self.ui.nav_list[self.ui.menu_opt].get('view')
-      view = view(**self.__dict__)
-      view.loop()
+      self.ui.view = view(**self.__dict__)
+      self.ui.view.loop()
 
       curses.napms(50)
       if self.ui.last_key == 9 or self.ui.last_key == 353:
         pass
       
-      
-    
     self.quit()
 
   def quit(self):
@@ -55,13 +52,13 @@ class Cli():
 class Colors():
   def __init__(self) -> None:
     curses.start_color()
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
-    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLUE)
-    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_CYAN)
-    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN)
     self.TOP_BAR = curses.color_pair(1)
+    curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     self.NAV_BAR = curses.color_pair(2)
+    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_GREEN)
     self.NAV_SELECT = curses.color_pair(3)
+    curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_YELLOW)
     self.INPUT_BAR = curses.color_pair(4)
 
 
@@ -70,6 +67,18 @@ class UI():
     user input'''
 
   def __init__(self, stdscr, system) -> None:
+    # System and curses
+    self.stdscr = stdscr
+    self.system = system 
+    self.colors = Colors()
+    # Input stuff
+    self.inputBar = None
+    self.input_prompt = "Input:"  
+    self.input_str = ''
+    self.last_key = 0
+    self.menu_opt = 0
+    self.exit_code = ''
+    # Dimensions
     self.height = 0
     self.width  = 0
     self.cursor_y = 0 
@@ -80,60 +89,35 @@ class UI():
     self.view_w = 0
     self.view_x = 0
     self.view_y = 0
-
-    self.input_prompt = "Input:"  
-    self.input_str = ''
-    self.last_key = 0
-    self.menu_opt = 0
-    self.exit_code = ''
-
-    self.stdscr = stdscr
-    self.system  = system 
-    self.colors = Colors()
-
     self.top_bar_height = 1
-    self.nav_bar_width  = 14
-    self.pad_x = self.nav_bar_width
+    self.side_bar_width = 14
+    self.pad_x = self.side_bar_width
     self.cursor_x_min = self.pad_x + len(self.input_prompt)
+    # View info
+    self.view = None
     self.view_line_count = 0
+    # DEBUG
+    self.resize_count = 0
 
     self.nav_list = [
-      {
-        'title': 'Home',
-        'view': home.View
-      },
-      {
-        'title': 'Server',
-        'view': server.View
-      },
-      {
-        'title': 'Email',
-        'view': email.View
-      },
-      {
-        'title': 'Database',
-        'view': database.View
-      },
-      {
-        'title': 'Backup',
-        'view': backup.View
-      },
-      {
-        'title': 'Curses debug',
-        'view': debug_curses.View
-      }
+      {'title': 'Home', 'view': home.View},
+      {'title': 'Server', 'view': server.View},
+      {'title': 'Email', 'view': email.View},
+      {'title': 'Database', 'view': database.View},
+      {'title': 'Backup', 'view': backup.View},
+      {'title': 'Curses debug', 'view': debug_curses.View}
     ]
 
   def initWindows(self):
     self.height, self.width = self.stdscr.getmaxyx()    
 
     self.topBar   = curses.newwin(self.top_bar_height, self.width, 0,0)
-    self.navBar   = curses.newwin(self.height - self.top_bar_height, self.nav_bar_width, self.top_bar_height,0)
+    self.navBar   = curses.newwin(self.height - self.top_bar_height, self.side_bar_width, self.top_bar_height,0)
     
     self.view_h = self.height - self.top_bar_height
-    self.view_w = self.width - self.nav_bar_width
+    self.view_w = self.width - self.side_bar_width + 1
     self.view_y = self.top_bar_height
-    self.view_x = self.nav_bar_width - 1
+    self.view_x = self.side_bar_width - 1
 
     # Place cursor at the bottom
     self.stdscr.move(self.height - 1, self.width - 1)
@@ -142,12 +126,21 @@ class UI():
     self.height, self.width = self.stdscr.getmaxyx()
 
     self.topBar.resize(self.top_bar_height, self.width)
-    self.navBar.resize(self.height - self.top_bar_height, self.nav_bar_width)
+    self.topBar.refresh()    
+    self.navBar.resize(self.height - self.top_bar_height, self.side_bar_width)
+    self.navBar.refresh()
+
+    if self.inputBar != None: 
+      self.inputBar.resize(1, self.width - self.side_bar_width)
 
     self.view_h = self.height - self.top_bar_height
-    self.view_w = self.width - self.nav_bar_width
+    self.view_w = self.width - self.side_bar_width
     self.view_y = self.top_bar_height
-    self.view_x = self.nav_bar_width - 1
+    self.view_x = self.side_bar_width - 1
+    self.resize_count += 1
+    self.input_str = f'RESIZE - { self.resize_count }'
+
+    self.view.resize()
 
     self.stdscr.refresh()
 
@@ -178,28 +171,6 @@ class UI():
       self.navBar.addstr(i,0,f"{menu_name}{' ' * (width - len(menu_name) - 1)}", color)
       self.navBar.noutrefresh()
 
-  def createInputWindow(self, width):
-    self.inputBar = curses.newwin(1, width + 1, self.top_bar_height, self.pad_x - 1)
-    self.view_h -= 1
-    self.view_y += 1
-    self.cursor_x = self.nav_bar_width + len(self.input_prompt)
-    self.cursor_x_min = self.cursor_x
-
-  def destroyInputWindow(self):
-    self.view_h += 1
-    self.view_y -= 1
-    self.cursor_x = self.width - 1
-    self.cursor_y = self.height - 1
-    self.input_str = ''
-
-  def drawInputBar(self):
-    height, width = self.inputBar.getmaxyx()
-    spacing       = ' ' * (width - (len(self.input_prompt) + len(self.input_str)) - 3)
-
-    self.inputBar.addstr(0,0,f' { self.input_prompt }{ self.input_str }{ spacing } ', self.colors.INPUT_BAR)
-    self.stdscr.move(self.top_bar_height, self.cursor_x)
-    self.inputBar.noutrefresh()
-
   def setCursorYorX(self, y=None, x=None):
     if y:
       self.cursor_y = y 
@@ -211,7 +182,8 @@ class UI():
     self.cursor_x = self.cursor_x_min
 
   def incCursorX(self, n):
-    self.cursor_x += n
+    if self.cursor_x < self.width - 1 and n > 0:
+      self.cursor_x += n
 
   def incCursorY(self, n):
     self.cursor_y += n
@@ -250,9 +222,9 @@ class UI():
       else:
         self.menu_opt = len(self.nav_list) - 1
     # LEFT and RIGHT 
-    elif self.last_key == 260 and self.cursor_x > self.pad_x + len(self.input_prompt): # Left
+    elif self.last_key == 260 and self.cursor_x > self.pad_x + len(self.input_prompt) - 1: # Left
       self.incCursorX(-1)
-    elif self.last_key == 261 and self.cursor_x < self.pad_x + len(self.input_prompt) + len(self.input_str): # Right
+    elif self.last_key == 261 and self.cursor_x < self.pad_x + len(self.input_prompt) + len(self.input_str) - 1: # Right
       self.incCursorX(1) 
     # UP and DOWN
     elif self.last_key == 259 and self.scroll_y >= 1: # Up
@@ -276,6 +248,6 @@ class UI():
     
     # Must be a character, write to screen
     elif self.last_key >= 32 and self.last_key <= 126:
-      pos = self.cursor_x - self.pad_x - len(self.input_prompt)
+      pos = self.cursor_x - self.pad_x - len(self.input_prompt) + 1
       self.input_str = self.input_str[:pos] + chr(self.last_key) + self.input_str[pos:]
       self.incCursorX(1)

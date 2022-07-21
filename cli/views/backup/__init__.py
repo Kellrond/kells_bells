@@ -1,21 +1,29 @@
 import curses
+from cli.view_builder import ViewBuilder
 
-class View:
-  def __init__(self, **kwargs):
-    from cli import UI
-    self.ui = kwargs.get('ui', UI)
+
+class View(ViewBuilder):
+  def __init__(self, **kwargs) -> None:
+    super().__init__(**kwargs)
     self.screen = curses.newwin(self.ui.view_h, self.ui.view_w, self.ui.view_y, self.ui.view_x)
+    self.screenListAdd(self.screen)
     
   def loop(self):
     self.ui.stdscr.nodelay(False)
-    self.out()
-    self.ui.getInput()
+    while self.viewing == True:
+      self.fill_page()
+      self.draw()
+      self.ui.getInput()
+      self.tabMenuHandler()
 
-  def out(self):
+  def fill_page(self):
     height, width = self.screen.getmaxyx()
-    self.screen.erase()
-    self.screen.addstr(1,2, f"Backup homepage")
-    self.screen.addstr(2,2, f'')
-    self.screen.addstr(3,2, f'Get something new in here')
-    self.screen.noutrefresh()
-    curses.doupdate()
+    self.clearLineList()
+
+    self.addLine(self.screen, "Backup homepage" )
+    self.addLine(self.screen)
+    self.addLine(self.screen, "  == TODO ==")
+    self.addLine(self.screen, " - Backup database")
+    self.addLine(self.screen, " - Backup config files")
+    self.addLine(self.screen, " - Backup package list")
+    self.addLine(self.screen, " - Backup email")

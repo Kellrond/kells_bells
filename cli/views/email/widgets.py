@@ -1,4 +1,5 @@
-
+from db.mailserver import Virtual_aliases, Virtual_domains, Virtual_users
+from modules import email_admin 
 
 class Home:
     def __init__(self, ui, h, w) -> None:
@@ -36,6 +37,7 @@ class Users:
         self.height = h
         self.width  = w
         self.ui     = ui 
+        self.virtual_users = Virtual_users()
 
     def draw(self):
         self.line_list = [
@@ -43,6 +45,10 @@ class Users:
             '',
 
         ]
+
+        users = email_admin.returnUsers()
+        for user in users:
+            self.line_list.append(f"{ user.get('id') } - { user.get('email') } - { user.get('domain_id') } - { user.get('password') }")
         return self.line_list
 
 class Aliases:

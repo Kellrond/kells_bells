@@ -1,39 +1,43 @@
 import curses
+from cli.view_builder import ViewBuilder
 
-
-class View:
-  def __init__(self, **kwargs):
-    from cli import UI
-    self.ui = kwargs.get('ui', UI)
-    self.ui.createInputWindow(self.ui.view_w)
+class View(ViewBuilder):
+  def __init__(self, **kwargs) -> None:
+    super().__init__(**kwargs)
+    self.inputScreenCreate()
     self.screen = curses.newwin(self.ui.view_h, self.ui.view_w, self.ui.view_y, self.ui.view_x)
-    self.viewing = True
-    self.loop()
+    self.screenListAdd(self.screen)
 
   def loop(self):
     self.ui.stdscr.nodelay(False)
     while self.viewing == True:
-      self.out()
-      self.ui.drawInputBar()
-      curses.doupdate()
+      self.fill_page()
+      self.draw()
       self.ui.getInput()
+      self.tabMenuHandler()
 
-      # It tab escape program
-      if self.ui.last_key == 9 or self.ui.last_key == 353:
-        self.ui.destroyInputWindow()
-        self.viewing = False
-        self.ui.exit_code = 'menu'
-
-  def out(self):
+  def fill_page(self):
     height, width = self.screen.getmaxyx()
-    self.screen.erase()
-    self.screen.addstr(0, 0, "TL")
-    self.screen.addstr(height - 1, 0, "BL")
-    self.screen.addstr(0, width - 2, "R")
-    self.screen.addstr(height - 1, width - 2, "R")
-    self.screen.addstr(1,2, f"Screen size Lines: { height } Cols: { width }")
-    self.screen.addstr(2,2, f'Last key: {self.ui.last_key}')
-    self.screen.addstr(3,2, f'Menu num: {self.ui.menu_opt}')
-    self.screen.addstr(4,2, f'Curs y x: {self.ui.cursor_y} {self.ui.cursor_x}')
-    self.screen.addstr(5,2, f'Scroll y x: { self.ui.scroll_y } { self.ui.scroll_x }')
-    self.screen.noutrefresh()
+    self.clearLineList()
+    
+    self.addLine(self.screen, "TL", y=0, x=0)
+    self.addLine(self.screen, "R", y=0, x=width - 2)
+
+    self.addLine(self.screen, "BL", y=height - 1, x=0)
+    self.addLine(self.screen, "R", y=height - 1, x=width - 2)
+
+    self.addLine(self.screen, f"Screen size Lines: { height } Cols: { width }")
+    self.addLine(self.screen, f'Last key: {self.ui.last_key}')
+    self.addLine(self.screen, f'Menu num: {self.ui.menu_opt}')
+    self.addLine(self.screen, f'Curs y x: {self.ui.cursor_y} {self.ui.cursor_x}')
+    self.addLine(self.screen, f'Scroll y x: { self.ui.scroll_y } { self.ui.scroll_x }')
+    self.addLine(self.screen, f"Resize count: { self.ui.resize_count }")
+    self.addLine(self.screen, f"View width: { self.ui.view_w }")
+    self.addLine(self.screen, f"Draw func width: { width }")
+    self.addLine(self.screen, )
+    self.addLine(self.screen, f'TOP_BAR', attr=self.ui.colors.TOP_BAR)
+    self.addLine(self.screen, f'NAV_BAR', attr=self.ui.colors.NAV_BAR)
+    self.addLine(self.screen, f'NAV_SELECT', attr=self.ui.colors.NAV_SELECT)
+    self.addLine(self.screen, f'INPUT_BAR', attr=self.ui.colors.INPUT_BAR)
+
+    

@@ -1,18 +1,18 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, sessionmaker, Session
 
 from db import db_connect
 
 Base = declarative_base()
 
 
-
 class Mailserver:
   def __init__(self) -> None:
     self.__name__ = "mailserver"
     self.engine = create_engine(db_connect.mailserver)
+    self.session = Session(self.engine)
 
   def connect(self):
     return self.engine.connect()
@@ -33,7 +33,7 @@ class Mailserver:
     
 
 
-class Virtual_aliases(Base):
+class Virtual_aliases(Base, Mailserver):
   __tablename__ = "virtual_aliases"
 
   id = Column(Integer, primary_key=True)
@@ -42,11 +42,11 @@ class Virtual_aliases(Base):
   destination = Column(String)
   
   virtual_domains = relationship(
-      "Virtual_domains", back_populates="virtual_aliases", cascade="all, delete-orphan"
+      "Virtual_domains", back_populates="virtual_aliases"
   )
 
 
-class Virtual_domains(Base):
+class Virtual_domains(Base, Mailserver):
   __tablename__ = "virtual_domains"
 
   id = Column(Integer, primary_key=True)
@@ -61,14 +61,15 @@ class Virtual_domains(Base):
   )
 
 
+
 class Virtual_users(Base):
   __tablename__ = "virtual_users"
 
   id = Column(Integer, primary_key=True)
-  domain_id = Column(Integer)
+  domain_id = Column(Integer, ForeignKey('virtual_domains.id'))
   password = Column(String)
   email = Column(String)
   
   virtual_domains = relationship(
-      "Virtual_domains", back_populates="virtual_users", cascade="all, delete-orphan"
+      "Virtual_domains", back_populates="virtual_users"
   )
