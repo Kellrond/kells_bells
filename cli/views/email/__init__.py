@@ -34,8 +34,11 @@ class View(ViewBuilder):
     height, width = self.screen.getmaxyx()
     self.clearLineList()
 
-    self.addLine(self.screen, "Email administration" )
-    self.addLine(self.screen)
+    widget_class = self.getCurrentWidget()
+    widget = widget_class(self.ui, *self.screen.getmaxyx())  
+
+    for line in widget.draw():
+      self.addLine(self.screen, line)
 
 
 

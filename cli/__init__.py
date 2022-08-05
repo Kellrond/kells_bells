@@ -182,7 +182,7 @@ class UI():
     self.cursor_x = self.cursor_x_min
 
   def incCursorX(self, n):
-    if self.cursor_x < self.width - 1 and n > 0:
+    if self.cursor_x < self.width - 1:
       self.cursor_x += n
 
   def incCursorY(self, n):
